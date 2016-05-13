@@ -68,7 +68,7 @@
       "ConstraintDescription" : "must select a valid database instance type."
     },
     "myEMRCoreSize" : { 
-    "Default" : "3",
+    "Default" : "5",
      "Type" : "String",
      "Description" : "Number of Core instances on EMR cluster"
      

@@ -31,7 +31,7 @@ Pre-requiste:
 | DBPassword |  Database admin password for your metastore| 
 | DBUsername |  Database admin account username| 
 | EMRKeyPair |  Name of existing EC2 KeyPair to enable SSH access to your EMR cluster| 
-| myEMRCoreSize |  Number of core instances in your EMR cluster (default: 3)| 
+| myEMRCoreSize |  Number of core instances in your EMR cluster (default: 5)| 
 | myEMRInstanceType |  Instance type for Core (default: m3.xlarge)| 
 | myEMRSubnetGroup | Your VPC subnet where you want to launch EMR cluster | 
 | CDIR |  CDIR of your EMR subnet  (allows connection on port 3306 from EMR cluster to RDS metastore)| 
@@ -75,6 +75,20 @@ Connect to Presto
 
 ```sql
 SELECT count(*) from wikistats_parq;
+```
+
+```sql
+SELECT language, count(*) as cnt
+FROM wikistats_parq
+group by language;
+```
+
+```sql
+SELECT language,page_title, AVG(hits) AS avg_hits
+FROM wikistats_parq
+GROUP BY language, page_title
+ORDER BY avg_hits DESC
+LIMIT 10;
 ```
 
 ```sql
