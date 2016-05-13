@@ -1,0 +1,222 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description" : "This CloudFormation creates a EMR cluster with Presto & Hive running on it, along with a hive metastore running outside the cluster on RDS. Author: Manjeet Chayel",
+
+  "Parameters" : {
+
+    "VpcId" : {
+      "Type" : "AWS::EC2::VPC::Id",
+      "Description" : "VpcId of your existing Virtual Private Cloud (VPC)"
+    },
+
+    "Subnets" : {
+      "Type" : "CommaDelimitedList",
+      "Description" : "The list of SubnetIds, for at least two Availability Zones in the region in your Virtual Private Cloud (VPC) for RDS Metastore"
+    },
+    
+    "MyEMRSubnetGroup" : {
+      "Type" : "AWS::EC2::Subnet::Id",
+      "Description" : "Subnet where you want EMR to run"
+    },
+
+    "EMRKeyPair" : {
+
+    "Description": "Name of an existing EC2 KeyPair to enable SSH access to the instance",
+    "Type": "AWS::EC2::KeyPair::KeyName",
+    "ConstraintDescription": "must be the name of an existing EC2 KeyPair."
+  
+    },
+
+    "DBName": {
+      "Default": "MyDatabase",
+      "Description" : "The database name",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "64",
+      "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+    },
+
+    "DBUsername": {
+      "Default": "admin",
+      "NoEcho": "true",
+      "Description" : "The database admin account username",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "16",
+      "AllowedPattern" : "[a-zA-Z][a-zA-Z0-9]*",
+      "ConstraintDescription" : "must begin with a letter and contain only alphanumeric characters."
+    },
+
+    "DBPassword": {
+      "Default": "admin",
+      "NoEcho": "true",
+      "Description" : "The database admin account password",
+      "Type": "String",
+      "MinLength": "1",
+      "MaxLength": "41",
+      "AllowedPattern" : "[a-zA-Z0-9]*",
+      "ConstraintDescription" : "must contain only alphanumeric characters."
+    },
+
+    "DBClass" : {
+      "Default" : "db.m1.small",
+      "Description" : "Database instance class",
+      "Type" : "String",
+      "AllowedValues" : [ "db.m1.small", "db.m1.large", "db.m1.xlarge", "db.m2.xlarge", "db.m2.2xlarge", "db.m2.4xlarge" ],
+      "ConstraintDescription" : "must select a valid database instance type."
+    },
+    "myEMRCoreSize" : { 
+    "Default" : "3",
+     "Type" : "String",
+     "Description" : "Number of Core instances on EMR cluster"
+     
+    },
+    
+	"myEMRInstanceType" : {
+		"Default" : "m3.xlarge",
+		"Description" : "EMR Instance class",
+		"Type" : "String",
+		"AllowedValues" : [ "m3.xlarge", "m3.2xlarge", "r3.xlarge" , "r3.2xlarge", "r3.4xlarge" , "c3.xlarge" , "c3.2xlarge" , "c3.4xlarge" , "c3.8xlarge" ]
+	},
+	
+    "DBAllocatedStorage" : {
+      "Default": "5",
+      "Description" : "The size of the database (Gb)",
+      "Type": "Number",
+      "MinValue": "5",
+      "MaxValue": "1024",
+      "ConstraintDescription" : "must be between 5 and 1024Gb."
+    },
+    "myEMRCDIR" : {
+      "Description" : "CDIR of your EMR subnet  (allows connection on port 3306 from EMR cluster to RDS metastore",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+   }
+  },
+
+  "Resources" : {
+
+    "MyDBSubnetGroup" : {
+      "Type" : "AWS::RDS::DBSubnetGroup",
+      "Properties" : {
+        "DBSubnetGroupDescription" : "Subnets available for the RDS DB Instance",
+        "SubnetIds" : { "Ref" : "Subnets" }
+      }
+    },
+
+    "myVPCSecurityGroup" : {
+        "Type" : "AWS::EC2::SecurityGroup",
+        "Properties" :
+        {
+           "GroupDescription" : "Security group for RDS DB Instance.",
+           "VpcId" : { "Ref" : "VpcId" },
+           "SecurityGroupIngress" : [ {
+          "IpProtocol" : "tcp",
+          "FromPort" : "3306",
+          "ToPort" : "3306",
+          "CidrIp" : { "Ref" : "myEMRCDIR"}
+        } ]
+			}},
+			
+    "MyDB" : {
+      "Type" : "AWS::RDS::DBInstance",
+      "Properties" : {
+        "DBName" : { "Ref" : "DBName" },
+        "AllocatedStorage" : { "Ref" : "DBAllocatedStorage" },
+        "DBInstanceClass" : { "Ref" : "DBClass" },
+        "DBInstanceIdentifier" : { "Fn::Join" : [ "", ["EMR-Metastore-", { "Ref" : "DBName" }]]},
+        "Engine" : "MySQL",
+        "EngineVersion" : "5.5",
+        "MasterUsername" : { "Ref" : "DBUsername" } ,
+        "MasterUserPassword" : { "Ref" : "DBPassword" },
+        "DBSubnetGroupName" : { "Ref" : "MyDBSubnetGroup" },
+        "VPCSecurityGroups" : [ { "Ref" : "myVPCSecurityGroup" }  ]
+      }
+    },
+
+    "MyEMRCluster": {
+      "Type": "AWS::EMR::Cluster",
+      "Properties": {
+        "Instances": {
+          "MasterInstanceGroup": {
+            "InstanceCount": 1,
+            "InstanceType": "m3.xlarge",
+            "Market": "ON_DEMAND",
+            "Name": "cfnMaster"
+          },
+          "CoreInstanceGroup": {
+            "InstanceCount": { "Ref" : "myEMRCoreSize" },
+            "InstanceType": { "Ref" : "myEMRInstanceType" },
+            "Market": "ON_DEMAND",
+            "Name": "cfnCore"
+          },
+          "TerminationProtected" : "true",
+          "Ec2KeyName" : { "Ref" : "EMRKeyPair"},
+          "Ec2SubnetId" : { "Ref" : "MyEMRSubnetGroup" }
+        },
+        "Name": "cfn-EMR-Presto",
+	"JobFlowRole" : "EMR_EC2_DefaultRole",
+	"ServiceRole" : "EMR_DefaultRole",
+	"ReleaseLabel" : "emr-4.6.0",
+
+	"Applications" : [ 
+		{
+			"Name" : "Presto-Sandbox"
+		},
+		{
+			"Name" : "Hive"
+		} ],
+		"Configurations" : [{
+  		"Classification" : "hive-site",
+  		"ConfigurationProperties" : { "javax.jdo.option.ConnectionURL" :  { "Fn::Join" : [ "", ["jdbc:mysql://", 
+  		 { "Fn::GetAtt": [ "MyDB", "Endpoint.Address" ] },
+                                      ":",
+                                      { "Fn::GetAtt": [ "MyDB", "Endpoint.Port" ] },
+                                      "/",
+                                     "hive?createDatabaseIfNotExist=true"
+  		
+  		]]},
+  		
+  		
+  	
+        "javax.jdo.option.ConnectionUserName" :  { "Ref" : "DBUsername" },
+        "javax.jdo.option.ConnectionPassword" : { "Ref" : "DBPassword" }
+         },
+ 		 "Configurations" : [  ]
+		}],
+        "Tags": [
+          {
+            "Key": "Dept",
+            "Value": "EMR-Presto"
+          }
+        ]
+      },
+      "DependsOn" : "MyDB"
+    }
+  },
+
+  "Outputs" : {
+  	"EMRCluster" : {
+  	  "Description" : "EMR Cluster DNS",
+  	  "Value" : { "Fn::GetAtt": ["MyEMRCluster","MasterPublicDNS" ]}
+  	  },
+  	"EMRClusterID" : { 
+  	  "Description" : "EMR Cluster DNS",
+  	  "Value" : {  "Ref": "DBName" }},
+  	  
+    "JDBCConnectionString": {
+      "Description" : "JDBC connection string for database",
+      "Value" : { "Fn::Join": [ "", [ "jdbc:mysql://",
+                                      { "Fn::GetAtt": [ "MyDB", "Endpoint.Address" ] },
+                                      ":",
+                                      { "Fn::GetAtt": [ "MyDB", "Endpoint.Port" ] },
+                                      "/",
+                                      { "Ref": "DBName" }]]}
+    }
+  }
+}
