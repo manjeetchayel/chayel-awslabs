@@ -105,12 +105,11 @@ ORDER BY avg_hits DESC
 LIMIT 10;
 ```
 
-4. You can verfiy the RDS MySQL metastore has your table metadata by doing a simple query against your DB instance, using the below SQL
+4. You can verfiy the RDS MySQL metastore has your table metadata by doing a simple query against your DB instance, using the below command from EMR master node
 
-```sql
-[hadoop@ip-172-31-43-48 ~]$ mysql -h emr-metastore-mydatabase.cbh0nfkgt17p.us-east-1.rds.amazonaws.com -u hive -e "Select * from hive.TBLS;" -p
-Enter password:
-````
+```sh
+$ mysql -h <<RDS-INSTANCE-ENDPOINT>> -u hive -e "Select * from hive.TBLS;" -p
+```
 
 Result will be something like below
 ```
