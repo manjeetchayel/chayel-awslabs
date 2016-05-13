@@ -105,5 +105,20 @@ ORDER BY avg_hits DESC
 LIMIT 10;
 ```
 
+4. You can verfiy the RDS MySQL metastore has your table metadata by doing a simple query against your DB instance, using the below SQL
+
+```sql
+[hadoop@ip-172-31-43-48 ~]$ mysql -h emr-metastore-mydatabase.cbh0nfkgt17p.us-east-1.rds.amazonaws.com -u hive -e "Select * from hive.TBLS;" -p
+Enter password:
+````
+
+Result will be something like below
+```
++--------+-------------+-------+------------------+--------+-----------+-------+----------------+----------------+--------------------+--------------------+----------------+
+| TBL_ID | CREATE_TIME | DB_ID | LAST_ACCESS_TIME | OWNER  | RETENTION | SD_ID | TBL_NAME       | TBL_TYPE       | VIEW_EXPANDED_TEXT | VIEW_ORIGINAL_TEXT | LINK_TARGET_ID |
++--------+-------------+-------+------------------+--------+-----------+-------+----------------+----------------+--------------------+--------------------+----------------+
+|      1 |  1463168125 |     1 |                0 | hadoop |         0 |     1 | wikistats_parq | EXTERNAL_TABLE | NULL               | NULL               |           NULL |
++--------+-------------+-------+------------------+--------+-----------+-------+----------------+----------------+--------------------+--------------------+----------------+
+```
 ### Cleanup
 Don't forget to cleanup your resources so you don't get billed after you have played around with it.
